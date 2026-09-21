@@ -3,11 +3,11 @@ import { Type } from "typebox";
 
 const BROKER = process.env.BRIDGE_URL || "http://127.0.0.1:3939";
 
-async function askBroker(to: "claude" | "pi", prompt: string, maxMs = 60000, trace_id?: string, hop = 0): Promise<string> {
+async function askBroker(to: "claude" | "pi", prompt: string, maxMs = 60000, trace_id?: string, hop = 0, session = "default"): Promise<string> {
   const res = await fetch(`${BROKER}/ask/${to}`, {
     method: "POST",
     headers: { "content-type": "application/json" },
-    body: JSON.stringify({ prompt, maxMs, trace_id, hop, from: to === "claude" ? "pi" : "claude" }),
+    body: JSON.stringify({ prompt, maxMs, trace_id, hop, session, from: to === "claude" ? "pi" : "claude" }),
     signal: AbortSignal.timeout(maxMs + 5000),
   });
   const json = (await res.json()) as { text?: string; error?: string; code?: string };
@@ -23,9 +23,10 @@ export default function (pi: ExtensionAPI) {
     parameters: Type.Object({
       prompt: Type.String({ description: "Self-contained prompt for Claude" }),
       maxMs: Type.Optional(Type.Number({ description: "Per-hop timeout ms" })),
+      session: Type.Optional(Type.String({ description: "Claude lane (default \"default\")" })),
     }),
     async execute(_toolCallId, params) {
-      const text = await askBroker("claude", params.prompt, params.maxMs ?? 60000);
+      const text = await askBroker("claude", params.prompt, params.maxMs ?? 60000, undefined, 0, params.session ?? "default");
       return { content: [{ type: "text", text }], details: {} };
     },
   });

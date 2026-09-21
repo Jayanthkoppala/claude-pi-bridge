@@ -21,12 +21,12 @@ function post(path, body) {
 }
 
 async function handleAskPi(args) {
-  const r = await post("/ask/pi", { prompt: args.prompt, trace_id: args.trace_id, hop: args.hop ?? 0, max_hops: args.max_hops ?? 3, deadline_ms: args.maxMs ?? args.deadline_ms ?? 60000, from: "claude" });
+  const r = await post("/ask/pi", { prompt: args.prompt, trace_id: args.trace_id, hop: args.hop ?? 0, max_hops: args.max_hops ?? 3, deadline_ms: args.maxMs ?? args.deadline_ms ?? 60000, session: args.session ?? "default", from: "claude" });
   if (r.status !== 200) throw new Error(`${r.json.code || "PEER_ERROR"}: ${r.json.error || "failed"}`);
   return r.json.text;
 }
 
-const TOOLS = [{ name: "ask_pi", description: "Ask Pi agent (hop-limited, via broker). Use for work Pi does better; keep prompts self-contained.", inputSchema: { type: "object", properties: { prompt: { type: "string" }, maxMs: { type: "number" }, trace_id: { type: "string" }, hop: { type: "number" } }, required: ["prompt"] } }];
+const TOOLS = [{ name: "ask_pi", description: "Ask Pi agent (hop-limited, via broker). session picks the Pi lane (default \"default\"); same trace_id sticks to its lane unless session is passed explicitly.", inputSchema: { type: "object", properties: { prompt: { type: "string" }, maxMs: { type: "number" }, trace_id: { type: "string" }, hop: { type: "number" }, session: { type: "string" } }, required: ["prompt"] } }];
 
 async function dispatch(msg) {
   if (msg.method === "initialize") return { protocolVersion: "2024-11-05", capabilities: { tools: {} }, serverInfo: { name: "claude-pi-bridge", version: "0.1.0" } };
