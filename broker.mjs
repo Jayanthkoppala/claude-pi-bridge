@@ -46,7 +46,9 @@ function lane(to, session) {
       for (const [k, v] of sessions) if (!oldest || v.lastUsed < oldest[1].lastUsed) oldest = [k, v];
       if (oldest) sessions.delete(oldest[0]);
     }
-    s = { to, session, peerId: REAL ? (to === "claude" ? randomUUID() : session) : `mock-${key}`, count: 0, lastUsed: Date.now(), lastMs: null, lastError: null };
+    // Broker-owned peerId: never reuse the lane name as the native id, or a
+    // lane named after a live TUI session would hijack it (two writers = hang).
+    s = { to, session, peerId: REAL ? randomUUID() : `mock-${key}`, count: 0, lastUsed: Date.now(), lastMs: null, lastError: null };
     sessions.set(key, s);
   }
   s.lastUsed = Date.now();
@@ -77,7 +79,8 @@ function realPeer(env, laneInfo, signal) {
   const deadline = Math.min(env.deadline_ms || 60000, 120000);
   return new Promise((resolve, reject) => {
     let cmd, args;
-    if (env.to === "pi") { cmd = "pi"; args = ["--mode", "json", "--session", laneInfo.peerId, "-p", env.prompt]; }
+    // --session-id creates if missing; --session only resolves existing ones.
+    if (env.to === "pi") { cmd = "pi"; args = ["--mode", "json", "--session-id", laneInfo.peerId, "-p", env.prompt]; }
     else { cmd = "claude"; args = ["-p", env.prompt, "--output-format", "json", "--session-id", laneInfo.peerId]; }
     const child = spawn(cmd, args, { signal });
     children.add(child);
@@ -91,6 +94,22 @@ function realPeer(env, laneInfo, signal) {
       clearTimeout(timer); done();
       if (signal?.aborted) return reject(Object.assign(new Error("CANCELLED"), { code: "CANCELLED" }));
       if (!out.trim()) return reject(Object.assign(new Error("PEER_CRASH: empty output " + redact(err).slice(0, 200)), { code: "PEER_CRASH" }));
+      // Pi --mode json emits a JSONL event stream: pull the last assistant message_end.
+      if (env.to === "pi") {
+        let best = null;
+        for (const line of out.split("\n")) {
+          const t = line.trim();
+          if (!t.startsWith("{")) continue;
+          try {
+            const e = JSON.parse(t);
+            if (e.type === "message_end" && e.message?.role === "assistant") best = e.message;
+          } catch {}
+        }
+        const blocks = best?.content;
+        const text = Array.isArray(blocks) ? blocks.filter((b) => b.type === "text").map((b) => b.text).join("\n") : null;
+        resolve({ text: (text || out.trim()).slice(0, 8000), ms: 0, tokens_est: Math.ceil(out.length / 4) });
+        return;
+      }
       try {
         const parsed = JSON.parse(out);
         const text = typeof parsed === "string" ? parsed : parsed.result || parsed.text || out.trim();
