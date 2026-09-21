@@ -4,12 +4,28 @@ Real nesting for Claude Code ↔ Pi. No terminal scraping — JSON only.
 
 - Claude gets `ask_pi` via MCP
 - Pi gets `ask_claude` via Pi extension
-- Node broker holds both sessions open, enforces hop limits
+- Node broker holds the protocol, enforces hop limits
 
-See `PLAN.md` for the deep design (3 architectures compared, synthesis = narrow-waist broker).
+## Quickstart (mock, zero LLM spend)
 
-Quickstart (coming in Phase 1):
 ```bash
-npm install
-npm run demo
+npm test       # 5 tests: framing, hops, broker, MCP
+npm run demo   # Claude -> Pi -> Claude nesting, hop-limit, trace DAG
 ```
+
+## Real mode
+
+```bash
+BRIDGE_REAL=1 node broker.mjs            # stateless spawn-per-ask (Design C)
+claude mcp add bridge -- node ./broker-mcp.mjs   # Claude side: ask_pi
+pi -e ./ask-claude.ts                   # Pi side: ask_claude
+```
+
+MCP via flag instead:
+```bash
+claude -p --input-format stream-json --output-format stream-json \
+  --mcp-config '{"mcpServers":{"bridge":{"command":"node","args":["./broker-mcp.mjs"]}}}' \
+  --strict-mcp-config
+```
+
+Docs: `PLAN.md` (3 architectures → synthesis), `TRANSPORT.md` (verified flags for claude 2.1.278 + pi 0.86.1).

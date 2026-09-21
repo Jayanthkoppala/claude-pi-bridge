@@ -1,1 +1,1 @@
-{"name":"claude-pi-bridge","version":"0.0.0","type":"module","scripts":{"demo":"node demo.mjs","test":"node --test test/"}}
+{"name":"claude-pi-bridge","version":"0.1.0","description":"Real nesting for Claude Code <-> Pi in JSON. ask_pi via MCP, ask_claude via Pi extension.","type":"module","license":"MIT","scripts":{"demo":"node demo.mjs","test":"node --test test/","broker":"node broker.mjs","mcp":"node broker-mcp.mjs"},"engines":{"node":">=20"}}
