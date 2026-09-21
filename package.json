@@ -1,0 +1,1 @@
+{"name":"claude-pi-bridge","version":"0.0.0","type":"module","scripts":{"demo":"node demo.mjs","test":"node --test test/"}}
